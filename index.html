@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drone Roof Inspection</title>
+<style>
+  /* Chalk marketing palette: green-1 ground, chartreuse primary, mint accents. */
+  :root { --bg:#224A41; --panel:#1C3B34; --line:#32645B; --ink:#EFF5F3; --muted:#B9CFC7;
+          --accent:#BBD96D; --mint:#70CD96; --minor:#F3F662; --moderate:#F8947F; --severe:#F17592; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; padding:32px 16px; }
+  html.embed body { padding:20px; }
+  html.embed header { display:none; }
+  .wrap { max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+  .mono { font-family:ui-monospace,"SFMono-Regular",Menlo,monospace; text-transform:uppercase;
+          letter-spacing:.06em; font-size:12px; }
+  h1 { font-size:22px; font-weight:500; margin:0 0 4px; letter-spacing:-0.3px; }
+  h2 { margin:0 0 10px; color:var(--muted); font-weight:400; }
+  header p { color:var(--muted); margin:0; font-size:14px; }
+  .top { display:grid; grid-template-columns:320px 1fr; gap:16px; }
+  @media (max-width:820px) { .top { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:14px; min-width:0; }
+  .sample { display:block; width:100%; text-align:left; background:transparent; color:var(--ink);
+            border:1px solid var(--line); border-radius:4px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font:inherit; }
+  .sample.on { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .sample small { display:block; color:var(--muted); font-size:12px; }
+  .upload { display:block; border:1px dashed var(--line); border-radius:4px; padding:10px 12px; color:var(--muted);
+            cursor:pointer; font-size:13px; }
+  .upload.on { border-color:var(--accent); color:var(--ink); }
+  .upload input { display:none; }
+  button.go { width:100%; margin-top:12px; font:13px/15px ui-monospace,"SFMono-Regular",Menlo,monospace;
+              text-transform:uppercase; letter-spacing:.06em; border:1px solid var(--accent); border-radius:20px;
+              padding:12px 22px; cursor:pointer; background:var(--accent); color:var(--bg); }
+  button.go:hover { background:transparent; color:var(--accent); }
+  button.go:disabled { opacity:.5; cursor:default; }
+  video { width:100%; aspect-ratio:16/9; background:#173029; border-radius:4px; display:block; }
+  #credit { color:var(--muted); font-size:12px; margin-top:6px; min-height:18px; }
+  #status { color:var(--muted); }
+  #status b { color:var(--ink); font-weight:500; }
+  .bar { height:4px; background:var(--line); border-radius:2px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:var(--mint); transition:width .3s; }
+  #frames { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; }
+  .frame { background:var(--panel); border:1px solid var(--line); border-radius:4px; overflow:hidden; cursor:pointer; }
+  .frame:hover { border-color:var(--muted); }
+  .shot { position:relative; }
+  .shot img { display:block; width:100%; }
+  .box { position:absolute; border:2px solid; border-radius:2px; pointer-events:none; }
+  .tablewrap { overflow-x:auto; }
+  .box span { position:absolute; left:-2px; top:-18px; font:10px/14px ui-monospace,Menlo,monospace; padding:1px 4px;
+              color:#173029; white-space:nowrap; text-transform:uppercase; }
+  .frame .meta { padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
+  .frame .scene { color:var(--muted); font-size:13px; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .chip { font:11px/16px ui-monospace,Menlo,monospace; text-transform:uppercase; padding:0 6px; border-radius:8px;
+          border:1px solid currentColor; }
+  .minor { color:var(--minor); } .moderate { color:var(--moderate); } .severe { color:var(--severe); }
+  .bg-minor { background:var(--minor); border-color:var(--minor); }
+  .bg-moderate { background:var(--moderate); border-color:var(--moderate); }
+  .bg-severe { background:var(--severe); border-color:var(--severe); }
+  #report { display:none; }
+  .rhead { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .rhead h3 { margin:0; font-size:20px; font-weight:500; max-width:720px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
+  @media (max-width:700px) { .kpis { grid-template-columns:repeat(2,1fr); } }
+  .kpi { border:1px solid var(--line); border-radius:4px; padding:10px; }
+  .kpi div:first-child { color:var(--muted); }
+  .kpi div:last-child { font-size:18px; margin-top:2px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:400; }
+  a.ev { color:var(--accent); cursor:pointer; text-decoration:underline; margin-right:6px; }
+  ul.verify { margin:6px 0 0; padding-left:20px; }
+  .note { color:var(--muted); font-size:12px; margin-top:12px; }
+  .ghost { background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:20px; padding:6px 14px;
+           font:11px ui-monospace,Menlo,monospace; text-transform:uppercase; cursor:pointer; }
+</style>
+<script>
+  if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Drone roof inspection for claims</h1>
+    <p>A vision-language model reviews drone footage frame by frame, boxes the damage it sees, and drafts a pre-inspection summary for the adjuster.</p>
+  </header>
+  <div class="top">
+    <div class="card">
+      <h2 class="mono">1 · Choose footage</h2>
+      <div id="samples"></div>
+      <label class="upload" id="uploadLabel">Or upload your own drone video (MP4/MOV, up to 5 min)
+        <input type="file" id="file" accept="video/*"></label>
+      <button class="go" id="go">Inspect roof</button>
+    </div>
+    <div class="card">
+      <video id="video" controls muted playsinline></video>
+      <div id="credit"></div>
+    </div>
+  </div>
+  <div class="bar"><i id="progress"></i></div>
+  <div id="status" class="mono">Pick a sample and press Inspect roof.</div>
+  <section id="report" class="card"></section>
+  <div id="frames"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const LABELS = {
+  missing_shingles: "Missing shingles", exposed_decking: "Exposed decking", temporary_tarp: "Temporary tarp",
+  structural_damage: "Structural damage", debris_on_roof: "Debris on roof", damaged_flashing_or_vents: "Flashing / vents",
+  fallen_tree_or_limb: "Fallen tree / limb", gutter_or_fascia_damage: "Gutter / fascia", debris_on_ground: "Debris on ground", other: "Other",
+};
+const RECS = { no_action: "No action", repair: "Repair", emergency_tarp: "Emergency tarp",
+               partial_replacement: "Partial replacement", full_replacement: "Full replacement" };
+let selected = { kind: "sample", name: "ian" }, samples = {}, frameTimes = {}, lastReport = null;
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+async function loadSamples() {
+  const s = await (await fetch("api/status")).json();
+  samples = s.samples;
+  const box = $("samples");
+  for (const [name, info] of Object.entries(samples)) {
+    const b = el("button", "sample"); b.type = "button"; b.dataset.name = name;
+    b.append(el("span", null, info.title), el("small", null, info.event));
+    b.onclick = () => select({ kind: "sample", name });
+    box.appendChild(b);
+  }
+  select({ kind: "sample", name: Object.keys(samples)[0] });
+}
+
+function select(sel) {
+  selected = sel;
+  document.querySelectorAll(".sample").forEach((b) => b.classList.toggle("on", sel.kind === "sample" && b.dataset.name === sel.name));
+  $("uploadLabel").classList.toggle("on", sel.kind === "upload");
+  if (sel.kind === "sample") {
+    $("video").src = `samples/${sel.name}.mp4`;
+    $("credit").textContent = `${samples[sel.name].event} · Footage: ${samples[sel.name].credit}`;
+  } else {
+    $("video").src = URL.createObjectURL(sel.file);
+    $("credit").textContent = `Your upload: ${sel.file.name}`;
+  }
+}
+$("file").onchange = (e) => { const f = e.target.files[0]; if (f) select({ kind: "upload", file: f }); };
+
+function seek(i) {
+  const t = frameTimes[i];
+  if (t == null) return;
+  $("video").currentTime = t;
+  $("video").scrollIntoView({ behavior: "smooth", block: "center" });
+  document.querySelectorAll(".frame").forEach((f) => (f.style.borderColor = f.dataset.i == i ? "var(--accent)" : ""));
+}
+
+function frameCard(e) {
+  const card = el("div", "frame"); card.dataset.i = e.i; card.style.order = e.i;
+  card.onclick = () => seek(e.i);
+  const shot = el("div", "shot");
+  const img = el("img"); img.src = "data:image/jpeg;base64," + e.image; img.alt = `Frame ${e.i}`;
+  shot.appendChild(img);
+  for (const f of e.findings) {
+    const [x1, y1, x2, y2] = f.bbox;
+    const b = el("div", `box ${f.severity}`);
+    Object.assign(b.style, { left: x1 / 10 + "%", top: y1 / 10 + "%", width: (x2 - x1) / 10 + "%", height: (y2 - y1) / 10 + "%" });
+    const tag = el("span", `bg-${f.severity}`, LABELS[f.type] || f.type);
+    // A box touching the top of the frame would push its label out of view; tuck it inside.
+    if (y1 < 70) tag.style.top = "0";
+    b.appendChild(tag); shot.appendChild(b);
+  }
+  const meta = el("div", "meta");
+  meta.append(el("div", "mono", `Frame ${e.i} · ${e.t.toFixed(1)} s · ${e.findings.length} finding${e.findings.length === 1 ? "" : "s"}`),
+              el("div", "scene", e.scene));
+  const chips = el("div", "chips");
+  e.findings.forEach((f) => { const c = el("span", `chip ${f.severity}`, LABELS[f.type] || f.type); c.title = f.description; chips.appendChild(c); });
+  meta.appendChild(chips);
+  card.append(shot, meta);
+  return card;
+}
+
+function renderReport(r) {
+  lastReport = r;
+  const sec = $("report"); sec.replaceChildren(); sec.style.display = "block";
+  const head = el("div", "rhead");
+  const left = el("div");
+  left.append(el("div", "mono", "Pre-inspection damage summary"), el("h3", null, r.headline));
+  const dl = el("button", "ghost", "Download JSON");
+  dl.onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(r, null, 2)], { type: "application/json" }));
+    a.download = "roof-damage-summary.json"; a.click();
+  };
+  head.append(left, dl);
+  const kpis = el("div", "kpis");
+  [["Overall severity", r.overall_severity, r.overall_severity], ["Recommendation", RECS[r.recommendation] || r.recommendation],
+   ["Damaged roof area", `~${r.estimated_damaged_area_pct}%`], ["Confidence", r.confidence]].forEach(([k, v, cls]) => {
+    const d = el("div", "kpi"); d.append(el("div", "mono", k), el("div", cls || null, v)); kpis.appendChild(d);
+  });
+  const overview = el("p", null, `${r.property_overview} Roof: ${r.roof_type}.`);
+  const why = el("p", null, r.recommendation_reason); why.style.color = "var(--muted)";
+  const table = el("table");
+  const thead = el("tr"); ["Damage", "Severity", "Evidence", "Notes"].forEach((h) => thead.appendChild(el("th", "mono", h)));
+  table.appendChild(thead);
+  for (const d of r.damage_items) {
+    const tr = el("tr");
+    tr.appendChild(el("td", null, LABELS[d.category] || d.category));
+    tr.appendChild(el("td", d.severity, d.severity));
+    const ev = el("td");
+    d.evidence_frames.forEach((i) => { const a = el("a", "ev", `#${i}`); a.onclick = () => seek(i); ev.appendChild(a); });
+    tr.append(ev, el("td", null, d.notes));
+    table.appendChild(tr);
+  }
+  const verify = el("div");
+  verify.appendChild(el("div", "mono", "Verify on site"));
+  const ul = el("ul", "verify");
+  r.verify_on_site.forEach((v) => ul.appendChild(el("li", null, v)));
+  verify.appendChild(ul); verify.style.marginTop = "14px";
+  const note = el("div", "note", "AI-assisted decision support from footage alone. It is not a coverage determination; an adjuster confirms damage on site.");
+  const tablewrap = el("div", "tablewrap"); tablewrap.appendChild(table);
+  sec.append(head, kpis, overview, why, tablewrap, verify, note);
+}
+
+async function run() {
+  $("go").disabled = true;
+  $("frames").replaceChildren(); $("report").style.display = "none"; frameTimes = {};
+  $("progress").style.width = "0";
+  $("status").textContent = "Uploading…";
+  let total = 0, seen = 0;
+  try {
+    let res;
+    if (selected.kind === "sample") {
+      res = await fetch(`api/analyze?sample=${encodeURIComponent(selected.name)}`, { method: "POST" });
+    } else {
+      const body = new FormData(); body.append("video", selected.file);
+      res = await fetch("api/analyze", { method: "POST", body });
+    }
+    if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const e = JSON.parse(line);
+        if (e.type === "busy") $("status").textContent = "The model is busy with other inspections. Try again in a moment.";
+        else if (e.type === "error") $("status").textContent = "Inspection failed: " + e.message;
+        else if (e.type === "start") { total = e.frames; $("status").textContent = `Reviewing ${e.frames} keyframes from ${e.duration.toFixed(0)} s of footage…`; }
+        else if (e.type === "frame") {
+          seen++; frameTimes[e.i] = e.t;
+          $("frames").appendChild(frameCard(e));
+          $("progress").style.width = (seen / (total + 1)) * 100 + "%";
+          $("status").textContent = seen < total ? `Reviewed ${seen} of ${total} keyframes…` : "Writing the damage summary…";
+        } else if (e.type === "report") { renderReport(e.report); $("progress").style.width = "100%"; }
+        else if (e.type === "done") {
+          $("status").innerHTML = "";
+          $("status").append(`Inspected ${total} keyframes in `, el("b", null, `${e.total_s} s`), " · Click a frame or evidence link to jump to it in the video");
+        }
+      }
+    }
+  } catch (err) {
+    $("status").textContent = "Inspection failed: " + err.message;
+  } finally {
+    $("go").disabled = false;
+  }
+}
+$("go").onclick = run;
+loadSamples();
+
+// Embedded in another page: report our height so the parent can size the iframe to fit.
+if (document.documentElement.classList.contains("embed") && window.parent !== window) {
+  const report = () => window.parent.postMessage(
+    { type: "chalk-demo-height", height: Math.ceil(document.body.getBoundingClientRect().height) }, "*");
+  new ResizeObserver(report).observe(document.body);
+  report();
+}
+</script>
+</body>
+</html>
