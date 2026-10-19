@@ -30,8 +30,8 @@ types and severities come from fixed lists, and boxes are `[x1, y1, x2, y2]` on 
 ## Run it
 
 You need [`uv`](https://docs.astral.sh/uv/) and a Chalk environment that can schedule an L40S (or
-the GPU choice is set directly in `deploy.py`). Credentials come from the SDK’s ambient credentials from `chalk login` in the current
-directory, or from `CHALK_API_SERVER`, `CHALK_CLIENT_ID`, `CHALK_CLIENT_SECRET` and `CHALK_ENVIRONMENT_ID`.
+the GPU choice is set directly in `deploy.py`). Credentials come from your existing `chalk login` in the current
+directory.
 
 ```bash
 ./deploy.py
