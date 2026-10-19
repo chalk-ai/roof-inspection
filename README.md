@@ -30,7 +30,7 @@ types and severities come from fixed lists, and boxes are `[x1, y1, x2, y2]` on 
 ## Run it
 
 You need [`uv`](https://docs.astral.sh/uv/) and a Chalk environment that can schedule an L40S (or
-pass `--gpu` for another card with at least 40 GB). Credentials come from the SDK’s ambient credentials from `chalk login` in the current
+the GPU choice is set directly in `deploy.py`). Credentials come from the SDK’s ambient credentials from `chalk login` in the current
 directory, or from `CHALK_API_SERVER`, `CHALK_CLIENT_ID`, `CHALK_CLIENT_SECRET` and `CHALK_ENVIRONMENT_ID`.
 
 ```bash
@@ -78,5 +78,5 @@ the public domain.
 
 The SDK reads credentials, API host, and the selected environment from your existing
 `chalk login` in `~/.chalk.yml`, including project-scoped and default logins.
-For unattended runs, `CHALK_CLIENT_ID` and `CHALK_CLIENT_SECRET` remain supported. Where available, `--env-id`
-overrides the target environment; otherwise the SDK uses your login or environment settings.
+For unattended runs, `CHALK_CLIENT_ID` and `CHALK_CLIENT_SECRET` remain supported.
+The examples use the current environment selected by your Chalk login.

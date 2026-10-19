@@ -15,13 +15,11 @@ The sample videos are public-domain U.S. Army Corps of Engineers drone footage f
 downloaded and trimmed at build time.
 
 Credentials come from your existing `chalk login` (or the CHALK_* env vars):
-    ./deploy.py [--env-id <environment>] [--prefix roof-claims] [--gpu nvidia-l40s]
+    ./deploy.py
 """
 
 from __future__ import annotations
 
-import argparse
-import os
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -77,59 +75,45 @@ def sample_commands() -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--prefix", default="roof-claims")
-    parser.add_argument("--env-id", default=None)
-    parser.add_argument("--gpu", default="nvidia-l40s")
-    parser.add_argument("--ready-timeout", type=float, default=2400.0)
     # Redeploy only the app and reuse the running model group, so a code change does not restart
     # (and re-download) a 17 GB model.
-    parser.add_argument("--app-only", action="store_true")
-    args = parser.parse_args()
 
-    if args.env_id:
-        os.environ["CHALK_ENVIRONMENT"] = args.env_id
     from chalkcompute import Image, ReadinessProbe, ScalingGroup
 
-    if args.app_only:
-        vlm_url = ScalingGroup.from_name(f"{args.prefix}-vlm").web_url
-        if vlm_url is None:
-            raise RuntimeError(f"{args.prefix}-vlm has no web_url; deploy without --app-only first")
-    else:
-        vlm = ScalingGroup(
-            image=Image.base(VLLM_IMAGE),
-            name=f"{args.prefix}-vlm",
-            gpu=args.gpu,
-            # Leaves room for node daemonsets on an 8-vCPU, 64 GB g6e.2xlarge; asking for all 8 vCPUs
-            # makes the pod unschedulable on any L40S size Karpenter offers.
-            cpu="4",
-            memory="24Gi",
-            env={"HF_XET_HIGH_PERFORMANCE": "1"},
-            entrypoint=[
-                "vllm",
-                "serve",
-                MODEL,
-                "--revision",
-                MODEL_REVISION,
-                "--served-model-name",
-                MODEL,
-                "--port",
-                "8080",
-                "--max-model-len",
-                "16384",
-                "--limit-mm-per-prompt",
-                '{"image": 5, "video": 0}',
-                "--gpu-memory-utilization",
-                "0.90",
-            ],  # fmt: skip
-            port=8080,
-            authenticated=True,
-            # vLLM answers /health once the weights are loaded and the engine is up.
-            readiness_probe=ReadinessProbe.http("/health"),
-            min_replicas=1,
-            max_replicas=1,
-        )
-        vlm_url = deploy(vlm, args.ready_timeout)
+    vlm = ScalingGroup(
+        image=Image.base(VLLM_IMAGE),
+        name='roof-claims-vlm',
+        gpu='nvidia-l40s',
+        # Leaves room for node daemonsets on an 8-vCPU, 64 GB g6e.2xlarge; asking for all 8 vCPUs
+        # makes the pod unschedulable on any L40S size Karpenter offers.
+        cpu="4",
+        memory="24Gi",
+        env={"HF_XET_HIGH_PERFORMANCE": "1"},
+        entrypoint=[
+            "vllm",
+            "serve",
+            MODEL,
+            "--revision",
+            MODEL_REVISION,
+            "--served-model-name",
+            MODEL,
+            "--port",
+            "8080",
+            "--max-model-len",
+            "16384",
+            "--limit-mm-per-prompt",
+            '{"image": 5, "video": 0}',
+            "--gpu-memory-utilization",
+            "0.90",
+        ],  # fmt: skip
+        port=8080,
+        authenticated=True,
+        # vLLM answers /health once the weights are loaded and the engine is up.
+        readiness_probe=ReadinessProbe.http("/health"),
+        min_replicas=1,
+        max_replicas=1,
+    )
+    vlm_url = deploy(vlm, 2400.0)
 
     image = (
         Image.debian_slim(python_version="3.12")
@@ -142,7 +126,7 @@ def main() -> None:
     )
     app = ScalingGroup(
         image=image,
-        name=args.prefix,
+        name='roof-claims',
         cpu="2",
         memory="4Gi",
         env={"VLM_URL": vlm_url, "VLM_MODEL": MODEL},
@@ -153,7 +137,7 @@ def main() -> None:
         min_replicas=1,
         max_replicas=1,
     )
-    print("web_url:", deploy(app, args.ready_timeout))
+    print("web_url:", deploy(app, 2400.0))
 
 
 if __name__ == "__main__":
